@@ -5,20 +5,29 @@
   vars:
     java_ip: "52.53.241.1:4200"
     prop_ip: "54.241.126.101"
-    java_files_path: "{{ playbook_dir }}/../src/main/java/**/*.java"
+    java_files_dir: "{{ playbook_dir }}/../src/main/java"
     properties_file: "{{ playbook_dir }}/../src/main/resources/application.properties"
 
   tasks:
+
+    - name: Find all Java files recursively
+      find:
+        paths: "{{ java_files_dir }}"
+        patterns: "*.java"
+      register: java_files
+
     - name: Replace localhost in @CrossOrigin in Java files
       replace:
-        path: "{{ item }}"
-        regexp: '@CrossOrigin\(origins = "http://localhost:4200"\)'
+        path: "{{ item.path }}"
+        regexp: '@CrossOrigin\(origins\s*=\s*"http://localhost:4200"\)'
         replace: '@CrossOrigin(origins = "http://{{ java_ip }}")'
-      with_fileglob:
-        - "{{ java_files_path }}"
+      loop: "{{ java_files.files }}"
+      when: java_files.matched > 0
 
     - name: Replace localhost in application.properties
       replace:
         path: "{{ properties_file }}"
         regexp: 'localhost'
         replace: '{{ prop_ip }}'
+      when: properties_file is file
+
