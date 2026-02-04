@@ -46,13 +46,13 @@ public class SecurityConfig {
 
                 // Configure authorization
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/auth/**").permitAll()
-                        .requestMatchers("/actuator/health").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() //Allow all HTTP OPTIONS requests to any endpoint without authentication.
+                        .requestMatchers("/api/auth/**").permitAll() //Allow all HTTP OPTIONS requests starting with "/api/auth/" without authentication.
+                        .requestMatchers("/actuator/health").permitAll() //Allow all HTTP OPTIONS requests starting with "/actuator/health" without authentication.
 
-                        .requestMatchers("/api/users/**").hasRole("USER")
+                        .requestMatchers("/api/users/**").hasRole("USER") //Any request to /api/users/... is allowed only if the authenticated user has the role USER
 
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN") //Any request to /api/admin/** is allowed only if the authenticated user has the role USER
                         .anyRequest().authenticated()
                 )
 

@@ -1,0 +1,24 @@
+---
+- name: Update IPs in Java and properties files
+  hosts: localhost
+  gather_facts: false
+  vars:
+    java_ip: "52.53.241.1:4200"
+    prop_ip: "54.241.126.101"
+    java_files_path: "src/main/java/**/*.java"
+    properties_file: "src/main/resources/application.properties"
+
+  tasks:
+    - name: Replace localhost in @CrossOrigin in Java files
+      replace:
+        path: "{{ item }}"
+        regexp: '@CrossOrigin\(origins = "http://localhost:4200"\)'
+        replace: '@CrossOrigin(origins = "http://{{ java_ip }}")'
+      with_fileglob:
+        - "{{ java_files_path }}"
+
+    - name: Replace localhost in application.properties
+      replace:
+        path: "{{ properties_file }}"
+        regexp: 'localhost'
+        replace: '{{ prop_ip }}'
