@@ -33,6 +33,11 @@ pipeline {
         }
         
         // <-- NEW STAGE ADDED HERE -->
+        stage('Check Ansible') {
+	    steps {
+	        sh 'ansible --version'
+	    }
+	}
         stage('Update Configs') {
             steps {
                 echo "=== Updating Java and properties files with Ansible ==="
