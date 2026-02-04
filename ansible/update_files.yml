@@ -5,8 +5,8 @@
   vars:
     java_ip: "52.53.241.1:4200"
     prop_ip: "54.241.126.101"
-    java_files_path: "src/main/java/**/*.java"
-    properties_file: "src/main/resources/application.properties"
+    java_files_path: "{{ playbook_dir }}/../src/main/java/**/*.java"
+    properties_file: "{{ playbook_dir }}/../src/main/resources/application.properties"
 
   tasks:
     - name: Replace localhost in @CrossOrigin in Java files
