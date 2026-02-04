@@ -1,0 +1,119 @@
+pipeline {
+    agent any
+
+    // Tools to be installed / available on the Jenkins agent
+    tools {
+        jdk 'JDK21'
+        maven 'Maven-3.9'
+    }
+
+    environment {
+        APP_NAME    = 'user-management-backend'
+        EC2_HOST    = '13.57.214.152'          // Replace with your backend server IP
+        EC2_USER    = 'ubuntu'
+        DEPLOY_PATH = '/home/ubuntu/backend-app' // Target deployment directory
+    }
+
+    parameters {
+        choice(
+            name: 'ENVIRONMENT',
+            choices: ['production', 'staging', 'dev'],
+            description: 'Deployment environment'
+        )
+    }
+
+    stages {
+
+        // ==============================
+        stage('Checkout') {
+            steps {
+                git branch: 'main',
+                    url: 'https://github.com/neerajbalodi/user-management-backend.git'
+            }
+        }
+        
+        // <-- NEW STAGE ADDED HERE -->
+        stage('Update Configs') {
+            steps {
+                echo "=== Updating Java and properties files with Ansible ==="
+    
+                sh '''
+                    ansible-playbook ansible/update_files.yml
+                '''
+            }
+        }
+
+        // ==============================
+        stage('Build') {
+            steps {
+                sh 'mvn clean package -DskipTests'
+
+                // List target folder to verify JAR
+                sh '''
+                    echo "=== Build Output ==="
+                    ls -la target/
+                '''
+            }
+        }
+
+        // ==============================
+        stage('Deploy') {
+            steps {
+                echo "=== DEPLOY STAGE STARTED ==="
+                echo "Environment: ${params.ENVIRONMENT}"
+                echo "Target: ${EC2_USER}@${EC2_HOST}"
+
+                sshagent(['ec2-ssh-key']) {
+                    sh '''
+                        JAR_FILE=$(ls target/*.jar | head -n 1)
+                        if [ -z "$JAR_FILE" ]; then
+                            echo "ERROR: No JAR found!"
+                            exit 1
+                        fi
+                        echo "Using JAR: $JAR_FILE"
+
+                        # Create tarball for deployment
+                        tar -czf backend.tar.gz -C target $(basename "$JAR_FILE")
+                        ls -la backend.tar.gz
+
+                        # Test SSH
+                        ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 ${EC2_USER}@${EC2_HOST} "echo 'SSH OK'"
+
+                        # Copy tarball to EC2
+                        scp -o StrictHostKeyChecking=no backend.tar.gz ${EC2_USER}@${EC2_HOST}:/tmp/
+
+                        # Verify copy
+                        ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} "ls -la /tmp/backend.tar.gz"
+
+                        # Deploy
+                        ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} "
+                            sudo mkdir -p ${DEPLOY_PATH}
+                            sudo rm -rf ${DEPLOY_PATH}/*
+                            sudo tar -xzf /tmp/backend.tar.gz -C ${DEPLOY_PATH}
+                            sudo chown -R ubuntu:ubuntu ${DEPLOY_PATH}
+                            rm -f /tmp/backend.tar.gz
+                        "
+
+                        # Verify deployment
+                        ssh -o StrictHostKeyChecking=no ${EC2_USER}@${EC2_HOST} "ls -la ${DEPLOY_PATH}/"
+                        
+                        echo "=== DEPLOY COMPLETE ==="
+                    '''
+                }
+            }
+        }
+    }
+
+    // ==============================
+    post {
+        success {
+            echo "Backend deployed successfully!"
+        }
+        failure {
+            echo " Pipeline failed!"
+        }
+        always {
+            cleanWs()
+        }
+    }
+}
